@@ -9,6 +9,7 @@ Think LeetCode meets a fighting game — timed, live, and against a real opponen
 - Tailwind CSS v4
 - lucide-react icons
 - Monaco Editor
+- Judge0
 
 ## Getting Started
 
@@ -37,7 +38,9 @@ The full frontend is complete across 10 pages.
 Backend is next. Planning to build with FastAPI + PostgreSQL.
 
 - [ ] Auth — register, login, JWT
-- [ ] Problems API
-- [ ] User profiles and match history
-- [ ] WebSocket duel engine
-- [ ] Code execution sandbox
+- [X] Problems API
+- [X] User profiles and match history
+- [X] WebSocket duel engine
+- [X] Code execution sandbox
+
+*Test harness issue priority*
