@@ -87,19 +87,28 @@ function useWebSocket() {
   const wsRef = useRef(null)
   const handlersRef = useRef({})
   const reconnectRef = useRef(null)
+  const [isConnected, setIsConnected] = useState(false)
 
   const connect = useCallback(() => {
     const token = localStorage.getItem("dcode_token")
     if (!token) return
     if (wsRef.current?.readyState === WebSocket.OPEN) return
+    if (wsRef.current?.readyState === WebSocket.CONNECTING) return
 
     const ws = new WebSocket(`ws://localhost:8000/ws?token=${token}`)
     wsRef.current = ws
 
-    ws.onopen = () => console.log("[WS] connected")
+    ws.onopen = () => {
+      console.log("[WS] connected")
+      setIsConnected(true)
+    }
     ws.onclose = () => {
       console.log("[WS] disconnected, reconnecting...")
+      setIsConnected(false)
       reconnectRef.current = setTimeout(() => connect(), 3000)
+    }
+    ws.onerror = () => {
+      setIsConnected(false)
     }
     ws.onmessage = (event) => {
       try {
@@ -114,7 +123,9 @@ function useWebSocket() {
   const send = useCallback((msg) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify(msg))
+      return true
     }
+    return false
   }, [])
 
   const on = useCallback((type, handler) => {
@@ -125,9 +136,10 @@ function useWebSocket() {
     if (reconnectRef.current) clearTimeout(reconnectRef.current)
     if (wsRef.current) wsRef.current.close()
     wsRef.current = null
+    setIsConnected(false)
   }, [])
 
-  return { send, on, disconnect, connect }
+  return { send, on, disconnect, connect, isConnected }
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -157,7 +169,7 @@ const PlayerAvatar = ({ username, size = "md", ring = null }) => {
 // MATCHMAKING VIEW
 // ═══════════════════════════════════════════════════════════
 
-const MatchmakingView = ({ onFindMatch, onCancel, searching, onCreateTest, onJoinTest, testMode, setTestMode, testRoomCode, setTestRoomCode, testJoining, waitingForOpponent, selectedFormat, setSelectedFormat }) => {
+const MatchmakingView = ({ onFindMatch, onCancel, searching, onCreateTest, onJoinTest, testMode, setTestMode, testRoomCode, setTestRoomCode, testJoining, waitingForOpponent, selectedFormat, setSelectedFormat, onBack }) => {
   if (waitingForOpponent && testRoomCode) {
     return (
       <div className="flex flex-col h-screen bg-void text-text-secondary antialiased items-center justify-center">
@@ -224,7 +236,16 @@ const MatchmakingView = ({ onFindMatch, onCancel, searching, onCreateTest, onJoi
   }
 
   return (
-    <div className="flex flex-col h-screen bg-void text-text-secondary antialiased items-center justify-center">
+    <div className="flex flex-col h-screen bg-void text-text-secondary antialiased items-center justify-center relative">
+      {onBack && (
+        <button
+          onClick={onBack}
+          className="absolute top-5 left-5 flex items-center gap-1.5 text-xs font-bold text-text-tertiary hover:text-text-primary transition-colors"
+        >
+          <ChevronLeft size={16} />
+          <span className="hidden sm:inline">Back</span>
+        </button>
+      )}
       <div className="w-full max-w-lg space-y-8 px-6">
         <div className="text-center space-y-3">
           <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-accent/10 text-accent mx-auto relative">
@@ -926,7 +947,7 @@ const ForfeitModal = ({ onClose, onConfirm }) => (
 // ═══════════════════════════════════════════════════════════
 
 const DuelPage = ({ onBack }) => {
-  const { send, on, disconnect, connect } = useWebSocket()
+  const { send, on, disconnect, connect, isConnected } = useWebSocket()
 
   const [phase, setPhase] = useState("matchmaking")
   const [searching, setSearching] = useState(false)
@@ -964,9 +985,19 @@ const DuelPage = ({ onBack }) => {
   const [roundNotification, setRoundNotification] = useState(null)
   const [rematchVotes, setRematchVotes] = useState(0)
   const [scorePopup, setScorePopup] = useState(null)
+  const [opponentGone, setOpponentGone] = useState(null)
+  const [notice, setNotice] = useState(null)
 
   const timerRef = useRef(null)
   const startTimeRef = useRef(null)
+  const submitTimerRef = useRef(null)
+  const noticeTimerRef = useRef(null)
+
+  const showNotice = useCallback((message) => {
+    setNotice(message)
+    if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current)
+    noticeTimerRef.current = setTimeout(() => setNotice(null), 4000)
+  }, [])
 
   // Connect WebSocket
   useEffect(() => {
@@ -1034,6 +1065,7 @@ const DuelPage = ({ onBack }) => {
     })
 
     on("next_question", (msg) => {
+      if (submitTimerRef.current) clearTimeout(submitTimerRef.current)
       setProblem(msg.question)
       setQuestionIndex(msg.questionIndex)
       setTotalQuestions(msg.totalQuestions)
@@ -1075,11 +1107,13 @@ const DuelPage = ({ onBack }) => {
     })
 
     on("duel_run_result", (msg) => {
+      if (submitTimerRef.current) clearTimeout(submitTimerRef.current)
       setRunResults(msg.result)
       setRunStatus(msg.result.status === "accepted" ? "passed" : "failed")
     })
 
     on("duel_submit_result", (msg) => {
+      if (submitTimerRef.current) clearTimeout(submitTimerRef.current)
       setRunResults(msg.result)
       setSubmitStatus("submitted")
       setSubmitted(true)
@@ -1098,6 +1132,9 @@ const DuelPage = ({ onBack }) => {
 
     on("duel_result", (msg) => {
       if (timerRef.current) clearInterval(timerRef.current)
+      if (submitTimerRef.current) clearTimeout(submitTimerRef.current)
+      setPhase("matchmaking")
+      setProblem(null)
       setResult({
         result: msg.result,
         reason: msg.reason,
@@ -1109,6 +1146,7 @@ const DuelPage = ({ onBack }) => {
         format: msg.format,
         problemsTotal: msg.problemsTotal,
       })
+      showNotice(msg.reason || "Match ended")
     })
 
     on("rematch_status", (msg) => {
@@ -1141,9 +1179,62 @@ const DuelPage = ({ onBack }) => {
     on("player_disconnected", () => {
       setOpponentActivity("idle")
       setOpponentProgress(null)
+      setOpponentGone(null)
     })
 
-    on("waiting", (msg) => {
+    on("opponent_gone", (msg) => {
+      setOpponentGone({ seconds: msg.graceSeconds || 30 })
+      setOpponentActivity("idle")
+    })
+
+    on("opponent_back", () => {
+      setOpponentGone(null)
+      setOpponentActivity("coding")
+    })
+
+    on("duel_resync", (msg) => {
+      setOpponentGone(null)
+      setPhase("duel")
+      setProblem(msg.question)
+      setOpponent(msg.opponent)
+      setPlayer(msg.player)
+      setRoomId(msg.roomId)
+      setFormat(msg.format)
+      setQuestionIndex(msg.questionIndex || 0)
+      setTotalQuestions(msg.totalQuestions || 0)
+      setCode(msg.question?.starterCode || "")
+      setSearching(false)
+      setWaitingForOpponent(false)
+      setTestJoining(false)
+      setSubmitted(!!msg.submitted)
+      setRunStatus("idle")
+      setSubmitStatus("idle")
+      setRunResults(null)
+      if (msg.scores) {
+        const myId = msg.player?.id || msg.player?.userId
+        const oppId = msg.opponent?.id || msg.opponent?.userId
+        setMyScore(myId ? (msg.scores[myId] || 0) : 0)
+        setOppScore(oppId ? (msg.scores[oppId] || 0) : 0)
+      }
+      startTimer(msg.timeLimit)
+      showNotice("Reconnected — match restored")
+    })
+
+    on("match_ended", (msg) => {
+      if (timerRef.current) clearInterval(timerRef.current)
+      setPhase("matchmaking")
+      setProblem(null)
+      setResult(null)
+      setSearching(false)
+      setWaitingForOpponent(false)
+      setTestJoining(false)
+      setSubmitted(false)
+      setRunStatus("idle")
+      setSubmitStatus("idle")
+      showNotice(msg.reason || "Match ended")
+    })
+
+    on("waiting", () => {
       setWaitingForOpponent(true)
     })
 
@@ -1173,6 +1264,14 @@ const DuelPage = ({ onBack }) => {
     send({ type: "cancel_match" })
   }, [send])
 
+  const handleBack = useCallback(() => {
+    setSearching(false)
+    setWaitingForOpponent(false)
+    setTestJoining(false)
+    send({ type: "cancel_match" })
+    if (onBack) onBack()
+  }, [send, onBack])
+
   const handleCreateTest = useCallback(() => {
     send({ type: "create_test_room", formatId: selectedFormat })
   }, [send, selectedFormat])
@@ -1183,21 +1282,82 @@ const DuelPage = ({ onBack }) => {
     send({ type: "join_test_room", roomCode: testRoomCode })
   }, [testRoomCode, send])
 
+  // Countdown while opponent is gone (server awards win on expiry)
+  useEffect(() => {
+    if (!opponentGone) return
+    if (opponentGone.seconds <= 0) {
+      setOpponentGone(null)
+      if (timerRef.current) clearInterval(timerRef.current)
+      if (submitTimerRef.current) clearTimeout(submitTimerRef.current)
+      setPhase("matchmaking")
+      setProblem(null)
+      setResult({
+        result: "lose",
+        reason: "Opponent disconnected",
+        ratingChange: -10,
+        yourScore: 0,
+        opponentScore: 0,
+        yourTotalScore: 0,
+        opponentTotalScore: 0,
+        format: format || "sprint",
+        problemsTotal: totalQuestions || 0,
+      })
+      showNotice("Opponent disconnected")
+      return
+    }
+    const t = setTimeout(() => {
+      setOpponentGone((prev) => (prev ? { seconds: prev.seconds - 1 } : null))
+    }, 1000)
+    return () => clearTimeout(t)
+  }, [opponentGone, format, totalQuestions, timerRef, submitTimerRef, showNotice])
+
+  const armSubmitTimeout = useCallback(() => {
+    if (submitTimerRef.current) clearTimeout(submitTimerRef.current)
+    submitTimerRef.current = setTimeout(() => {
+      setRunStatus((rs) => (rs === "running" ? "idle" : rs))
+      setSubmitStatus((ss) => {
+        if (ss === "submitting" || ss === "running") {
+          showNotice("Server didn't respond — check your connection and retry")
+          return "idle"
+        }
+        return ss
+      })
+    }, 25000)
+  }, [showNotice])
+
   const handleRun = useCallback(() => {
     if (!roomId) return
+    if (!isConnected) {
+      showNotice("Disconnected — reconnecting, please wait")
+      return
+    }
     setRunStatus("running")
     setRunResults(null)
-    send({ type: "duel_run", roomId, code })
+    if (!send({ type: "duel_run", roomId, code })) {
+      setRunStatus("idle")
+      showNotice("Disconnected — reconnecting, please wait")
+      return
+    }
     send({ type: "activity_update", roomId, activity: "running" })
-  }, [roomId, code, send])
+    armSubmitTimeout()
+  }, [roomId, code, send, isConnected, showNotice, armSubmitTimeout])
 
   const handleSubmit = useCallback(() => {
     if (!roomId || submitted) return
+    if (!isConnected) {
+      showNotice("Disconnected — reconnecting, please wait")
+      return
+    }
     setSubmitStatus("submitting")
     setRunResults(null)
-    send({ type: "duel_submit", roomId, code })
+    if (!send({ type: "duel_submit", roomId, code })) {
+      setSubmitStatus("idle")
+      showNotice("Disconnected — reconnecting, please wait")
+      return
+    }
     send({ type: "activity_update", roomId, activity: "submitting" })
-  }, [roomId, code, submitted, send])
+    armSubmitTimeout()
+  }, [roomId, code, submitted, send, isConnected, showNotice, armSubmitTimeout])
 
   const handleForfeitConfirm = useCallback(() => {
     send({ type: "forfeit", roomId })
@@ -1225,6 +1385,7 @@ const DuelPage = ({ onBack }) => {
         waitingForOpponent={waitingForOpponent}
         selectedFormat={selectedFormat}
         setSelectedFormat={setSelectedFormat}
+        onBack={handleBack}
       />
     )
   }
@@ -1249,6 +1410,26 @@ const DuelPage = ({ onBack }) => {
 
       {/* Round Notification */}
       <RoundNotification notification={roundNotification} />
+
+      {notice && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-xl border border-warning/30 bg-void/95 text-warning text-xs font-bold font-sans shadow-2xl">
+          {notice}
+        </div>
+      )}
+
+      {phase === "duel" && !isConnected && !result && (
+        <div className="mx-4 mt-3 px-4 py-2.5 rounded-xl border border-danger/30 bg-danger/10 flex items-center justify-center gap-2 text-xs font-bold font-sans text-danger shrink-0">
+          <Loader size={14} className="animate-spin" />
+          Connection lost — reconnecting... your match is safe for a short while.
+        </div>
+      )}
+
+      {phase === "duel" && isConnected && opponentGone && !result && (
+        <div className="mx-4 mt-3 px-4 py-2.5 rounded-xl border border-warning/30 bg-warning/10 flex items-center justify-center gap-2 text-xs font-bold font-sans text-warning shrink-0">
+          <Loader size={14} className="animate-spin" />
+          Opponent disconnected — waiting {opponentGone.seconds}s for them to reconnect...
+        </div>
+      )}
 
       {/* Score Popup */}
       {scorePopup && (
