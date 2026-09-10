@@ -1,10 +1,11 @@
-import React, { useState, useCallback, useRef, useEffect } from "react"
+import React, { useState, useCallback, useRef, useEffect, useMemo } from "react"
 import {
   ChevronLeft,
   Copy,
   Check,
   Hash,
   X,
+  Loader,
 } from "lucide-react"
 import {
   SwordsIcon,
@@ -18,19 +19,10 @@ import {
 import MonacoEditor from "../ui/MonacoEditor"
 import OutputTerminal from "../ui/OutputTerminal"
 
-const generateRoomCode = () => {
-  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-  let code = ""
-  for (let i = 0; i < 6; i++) {
-    code += chars[Math.floor(Math.random() * chars.length)]
-  }
-  return code
-}
-
 const formatOptions = [
-  { id: "sprint", name: "Sprint", desc: "3 problems, speed matters" },
-  { id: "marathon", name: "Marathon", desc: "5 problems, endurance test" },
-  { id: "blitz", name: "Blitz", desc: "2 problems, fast or nothing" },
+  { id: "sprint", name: "Sprint", desc: "5 problems, 10 minutes" },
+  { id: "standard", name: "Standard", desc: "10 problems, 30 minutes" },
+  { id: "extended", name: "Extended", desc: "15 problems, 60 minutes" },
 ]
 
 const difficultyColor = (d) => {
@@ -44,12 +36,34 @@ const difficultyColor = (d) => {
 function useWebSocket() {
   const wsRef = useRef(null)
   const handlersRef = useRef({})
+  const pendingRef = useRef([])
+  const reconnectRef = useRef(null)
+  const [isConnected, setIsConnected] = useState(false)
   const connect = useCallback(() => {
     const token = localStorage.getItem("dcode_token")
     if (!token) return
     if (wsRef.current?.readyState === WebSocket.OPEN) return
+    if (wsRef.current?.readyState === WebSocket.CONNECTING) return
     const ws = new WebSocket(`ws://localhost:8000/ws?token=${token}`)
     wsRef.current = ws
+    ws.onopen = () => {
+      setIsConnected(true)
+      const queued = pendingRef.current
+      pendingRef.current = []
+      for (const msg of queued) {
+        try {
+          ws.send(JSON.stringify(msg))
+        } catch {}
+      }
+    }
+    ws.onclose = () => {
+      setIsConnected(false)
+      if (reconnectRef.current) clearTimeout(reconnectRef.current)
+      reconnectRef.current = setTimeout(() => connect(), 3000)
+    }
+    ws.onerror = () => {
+      setIsConnected(false)
+    }
     ws.onmessage = (event) => {
       try {
         const msg = JSON.parse(event.data)
@@ -58,18 +72,30 @@ function useWebSocket() {
     }
   }, [])
   const send = useCallback((msg) => {
-    if (wsRef.current?.readyState === WebSocket.OPEN)
-      wsRef.current.send(JSON.stringify(msg))
-  }, [])
+    const ws = wsRef.current
+    if (ws?.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify(msg))
+      return true
+    }
+    pendingRef.current.push(msg)
+    if (!ws || ws.readyState === WebSocket.CLOSED) connect()
+    return false
+  }, [connect])
   const on = useCallback((type, handler) => {
     handlersRef.current[type] = handler
   }, [])
   const disconnect = useCallback(() => {
+    if (reconnectRef.current) clearTimeout(reconnectRef.current)
+    pendingRef.current = []
     if (wsRef.current) wsRef.current.close()
     wsRef.current = null
+    setIsConnected(false)
   }, [])
-  return { send, on, disconnect, connect }
+  return useMemo(() => ({ send, on, disconnect, connect, isConnected }), [send, on, disconnect, connect, isConnected])
 }
+
+// NOTE: effects must depend on the stable callbacks (ws.send etc.), never on
+// the whole ws object, or the socket gets torn down on every render.
 
 const Header = ({ onBack, roomCode }) => (
   <header className="h-14 flex items-center justify-between px-5 bg-void border-b border-border shrink-0 select-none">
@@ -123,18 +149,9 @@ const RoomCodeDisplay = ({ code }) => {
 
 const CreateRoom = ({ onBack, onCreate }) => {
   const [format, setFormat] = useState("sprint")
-  const [roomCode, setRoomCode] = useState("")
-  const [copied, setCopied] = useState(false)
 
-  const handleGenerateCode = () => setRoomCode(generateRoomCode())
-  const handleCopy = () => {
-    navigator.clipboard.writeText(roomCode)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
   const handleCreate = () => {
-    const code = roomCode || generateRoomCode()
-    onCreate({ code, format })
+    onCreate({ format })
   }
 
   return (
@@ -152,36 +169,6 @@ const CreateRoom = ({ onBack, onCreate }) => {
           </div>
 
           <div className="bg-surface border border-border rounded-xl p-5 space-y-5">
-            <div className="space-y-2">
-              <label className="text-[10px] font-sans font-bold uppercase tracking-wider text-text-tertiary">
-                Room Code
-              </label>
-              <div className="flex gap-2">
-                <div className="flex-1 bg-void border border-border rounded-lg px-4 py-2.5 font-mono text-lg font-bold text-text-primary tracking-[0.3em] text-center">
-                  {roomCode || "------"}
-                </div>
-                <button
-                  onClick={handleGenerateCode}
-                  className="px-4 py-2 text-xs font-mono font-bold text-accent bg-accent/10 border border-accent/20 rounded-lg hover:bg-accent/20 transition-colors"
-                >
-                  Generate
-                </button>
-                {roomCode && (
-                  <button
-                    onClick={handleCopy}
-                    className="px-3 py-2 text-text-tertiary hover:text-text-primary bg-void border border-border rounded-lg hover:bg-elevated transition-colors"
-                    title="Copy code"
-                  >
-                    {copied ? (
-                      <Check size={14} className="text-success" />
-                    ) : (
-                      <Copy size={14} />
-                    )}
-                  </button>
-                )}
-              </div>
-            </div>
-
             <div className="space-y-2">
               <label className="text-[10px] font-sans font-bold uppercase tracking-wider text-text-tertiary">
                 Format
@@ -227,7 +214,7 @@ const CreateRoom = ({ onBack, onCreate }) => {
   )
 }
 
-const JoinRoom = ({ onBack, onJoin }) => {
+const JoinRoom = ({ onBack, onJoin, serverError }) => {
   const [roomCode, setRoomCode] = useState("")
   const [joining, setJoining] = useState(false)
   const [error, setError] = useState("")
@@ -239,14 +226,23 @@ const JoinRoom = ({ onBack, onJoin }) => {
     return () => clearTimeout(errorTimerRef.current)
   }, [])
 
+  useEffect(() => {
+    if (serverError) {
+      clearTimeout(errorTimerRef.current)
+      setError(serverError)
+      setJoining(false)
+    }
+  }, [serverError])
+
   const handleJoin = () => {
     if (roomCode.length < 4) return
     setJoining(true)
     setError("")
+    clearTimeout(errorTimerRef.current)
     errorTimerRef.current = setTimeout(() => {
       setError("Room not found or is full")
       setJoining(false)
-    }, 5000)
+    }, 8000)
     onJoin({ code: roomCode.toUpperCase() })
   }
 
@@ -440,6 +436,7 @@ const DuelView = ({
   onRematch,
   rematchStatus,
   scorePopup,
+  opponentGone,
 }) => {
   const timeMinutes = Math.floor(timeLeft / 60)
   const timeSeconds = timeLeft % 60
@@ -483,6 +480,15 @@ const DuelView = ({
           </button>
         </div>
       </header>
+
+      {opponentGone && (
+        <div className="flex items-center justify-between px-5 py-2 text-xs font-bold text-warning shrink-0">
+          <span>
+            <Loader size={12} className="animate-spin mr-1" />
+            Opponent disconnected — waiting {opponentGone.seconds}s
+          </span>
+        </div>
+      )}
 
       <div className="flex-1 flex overflow-hidden">
         <div className="w-[300px] flex flex-col border-r border-border bg-surface shrink-0 overflow-y-auto">
@@ -784,19 +790,34 @@ const CustomRoomPage = ({ onBack }) => {
   const [resultData, setResultData] = useState(null)
   const [rematchStatus, setRematchStatus] = useState("")
   const [scorePopup, setScorePopup] = useState(null)
+  const [joinError, setJoinError] = useState("")
+  const [opponentGone, setOpponentGone] = useState(null)
+  const [notice, setNotice] = useState(null)
 
   const ws = useWebSocket()
+  const { isConnected } = ws
   const timerRef = useRef(null)
   const playerIdRef = useRef(null)
+  const submitTimerRef = useRef(null)
+  const noticeTimerRef = useRef(null)
+  const goneTimerRef = useRef(null)
+
+  const showNotice = (message) => {
+    setNotice(message)
+    if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current)
+    noticeTimerRef.current = setTimeout(() => setNotice(null), 4000)
+  }
 
   useEffect(() => {
     ws.on("test_room_created", (msg) => {
       setRoomCode(msg.roomCode)
       setRoomId(`test-${msg.roomCode}`)
       setFormat(msg.format?.id || "sprint")
+      setPhase("lobby")
     })
 
     ws.on("test_room_joined", (msg) => {
+      setJoinError("")
       setRoomCode(msg.roomCode)
       setRoomId(`test-${msg.roomCode}`)
       setProblem(msg.question)
@@ -823,11 +844,13 @@ const CustomRoomPage = ({ onBack }) => {
     })
 
     ws.on("duel_run_result", (msg) => {
+      if (submitTimerRef.current) clearTimeout(submitTimerRef.current)
       setRunResults(msg.result)
       setRunStatus("idle")
     })
 
     ws.on("duel_submit_result", (msg) => {
+      if (submitTimerRef.current) clearTimeout(submitTimerRef.current)
       setRunResults(msg.result)
       setSubmitStatus("idle")
       setSubmitted(true)
@@ -842,6 +865,7 @@ const CustomRoomPage = ({ onBack }) => {
     })
 
     ws.on("next_question", (msg) => {
+      if (submitTimerRef.current) clearTimeout(submitTimerRef.current)
       setProblem(msg.question)
       setQuestionIndex(msg.questionIndex)
       setTotalQuestions(msg.totalQuestions)
@@ -887,6 +911,11 @@ const CustomRoomPage = ({ onBack }) => {
       })
     })
 
+    ws.on("opponent_gone", (msg) => {
+      setOpponentGone({ seconds: msg.graceSeconds || 30 })
+      setOpponentActivity("idle")
+    })
+
     ws.on("rematch_status", () => {
       setRematchStatus("voted")
     })
@@ -912,12 +941,13 @@ const CustomRoomPage = ({ onBack }) => {
 
     ws.on("error", (msg) => {
       console.error("WS error:", msg.message)
+      if (msg.message) setJoinError(msg.message)
     })
 
     return () => {
       ws.disconnect()
     }
-  }, [ws])
+  }, [ws.on, ws.disconnect])
 
   const timerActive = timeLeft > 0 && phase === "duel"
 
@@ -937,17 +967,17 @@ const CustomRoomPage = ({ onBack }) => {
 
   const handleConnect = useCallback(() => {
     ws.connect()
-  }, [ws])
+  }, [ws.connect])
 
   const handleCreate = useCallback(
-    ({ code, format: fmt }) => {
+    ({ format: fmt }) => {
       setFormat(fmt)
-      setRoomCode(code)
-      setPhase("lobby")
+      setRoomCode("")
+      setRoomId("")
+      setJoinError("")
+      setPhase("creating")
       handleConnect()
-      setTimeout(() => {
-        ws.send({ type: "create_test_room", formatId: fmt })
-      }, 300)
+      ws.send({ type: "create_test_room", formatId: fmt })
     },
     [ws, handleConnect]
   )
@@ -955,10 +985,9 @@ const CustomRoomPage = ({ onBack }) => {
   const handleJoin = useCallback(
     ({ code }) => {
       setRoomCode(code)
+      setJoinError("")
       handleConnect()
-      setTimeout(() => {
-        ws.send({ type: "join_test_room", roomCode: code })
-      }, 300)
+      ws.send({ type: "join_test_room", roomCode: code })
     },
     [ws, handleConnect]
   )
@@ -1031,6 +1060,7 @@ const CustomRoomPage = ({ onBack }) => {
         onRematch={handleRematch}
         rematchStatus={rematchStatus}
         scorePopup={scorePopup}
+        opponentGone={opponentGone}
       />
     )
   }
@@ -1042,6 +1072,26 @@ const CustomRoomPage = ({ onBack }) => {
         roomCode={roomCode}
         format={format}
       />
+    )
+  }
+
+  if (phase === "creating") {
+    return (
+      <div className="flex flex-col h-screen bg-void text-text-secondary antialiased">
+        <Header onBack={() => setPhase("select")} />
+        <div className="flex-1 flex items-center justify-center p-6">
+          <div className="text-center space-y-4">
+            <div className="h-10 w-10 border-2 border-accent/30 border-t-accent rounded-full animate-spin mx-auto" />
+            <p className="text-sm font-mono text-text-tertiary">Creating room...</p>
+            <button
+              onClick={() => setPhase("select")}
+              className="px-6 py-2.5 text-xs font-mono font-bold text-text-tertiary bg-surface hover:bg-elevated border border-border rounded-xl transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
     )
   }
 
@@ -1059,6 +1109,7 @@ const CustomRoomPage = ({ onBack }) => {
       <JoinRoom
         onBack={() => setPhase("select")}
         onJoin={handleJoin}
+        serverError={joinError}
       />
     )
   }
