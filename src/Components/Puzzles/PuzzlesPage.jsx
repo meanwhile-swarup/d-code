@@ -1,6 +1,6 @@
-import React, { useState } from "react"
+import React, { useState, useEffect } from "react"
 import { Zap, Trophy, Target, Flame, Check, X, Code2, ChevronDown } from "lucide-react"
-import { puzzles, puzzlesStats } from "../../data/puzzlesData"
+import { puzzles as puzzlesApi } from "../../api/client"
 import { difficultyBadge } from "../../utils/badges"
 
 const PuzzlesPage = ({ _onNavigate }) => {
@@ -8,16 +8,86 @@ const PuzzlesPage = ({ _onNavigate }) => {
   const [answers, setAnswers] = useState({})
   const [difficultyFilter, setDifficultyFilter] = useState("All")
   const [languageFilter, setLanguageFilter] = useState("All")
+  const [puzzleList, setPuzzleList] = useState([])
+  const [daily, setDaily] = useState(null)
+  const [loading, setLoading] = useState(true)
 
-  const filteredPuzzles = puzzles.filter((p) => {
+  const normalize = (p) => {
+    let options = p.options
+    if (!options && p.answers) {
+      if (Array.isArray(p.answers)) options = p.answers
+      else if (typeof p.answers === "string") {
+        try {
+          const parsed = JSON.parse(p.answers)
+          options = Array.isArray(parsed) ? parsed : []
+        } catch {
+          options = []
+        }
+      }
+    }
+    return { ...p, options: options || [] }
+  }
+
+  useEffect(() => {
+    const fetchPuzzles = async () => {
+      try {
+        const [listData, dailyData] = await Promise.all([
+          puzzlesApi.list(),
+          puzzlesApi.daily().catch(() => null),
+        ])
+        const normalized = (Array.isArray(listData) ? listData : []).map(normalize)
+        const normalizedDaily = dailyData ? normalize(dailyData) : null
+        setPuzzleList(normalized)
+        setDaily(normalizedDaily)
+        const initial = {}
+        for (const p of normalized) {
+          if (p.attempted && p.correct) initial[p.id] = p.correctIndex
+        }
+        if (normalizedDaily && normalizedDaily.attempted && normalizedDaily.correct != null) {
+          initial[normalizedDaily.id] = normalizedDaily.correctIndex
+        }
+        setAnswers(initial)
+      } catch (err) {
+        console.error("Failed to fetch puzzles:", err)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchPuzzles()
+  }, [])
+
+  const filteredPuzzles = puzzleList.filter((p) => {
     if (difficultyFilter !== "All" && p.difficulty !== difficultyFilter) return false
     if (languageFilter !== "All" && p.language !== languageFilter) return false
     return true
   })
 
-  const handleAnswer = (puzzleId, optionIndex) => {
+  const handleAnswer = async (puzzleId, optionIndex) => {
     if (answers[puzzleId] !== undefined) return
+    const target = puzzleList.find((p) => p.id === puzzleId) || (daily?.id === puzzleId ? daily : null)
+    if (target?.attempted) return
     setAnswers((prev) => ({ ...prev, [puzzleId]: optionIndex }))
+    try {
+      const res = await puzzlesApi.attempt(puzzleId, optionIndex)
+      const correct = res?.correct ?? (optionIndex === target?.correctIndex)
+      setPuzzleList((prev) =>
+        prev.map((p) =>
+          p.id === puzzleId
+            ? { ...p, attempted: true, correct }
+            : p
+        )
+      )
+      if (daily?.id === puzzleId) {
+        setDaily((prev) => (prev ? { ...prev, attempted: true, correct } : prev))
+      }
+    } catch (err) {
+      console.error("Failed to submit answer:", err)
+      setAnswers((prev) => {
+        const next = { ...prev }
+        delete next[puzzleId]
+        return next
+      })
+    }
   }
 
   const isCorrect = (puzzleId, correctIndex) => {
@@ -29,18 +99,41 @@ const PuzzlesPage = ({ _onNavigate }) => {
     return "text-info bg-info/12 border border-info/25"
   }
 
+  const attempted = puzzleList.filter((p) => p.attempted).length
+  const correct = puzzleList.filter((p) => p.correct).length
+  const streak = (() => {
+    let s = 0
+    for (let i = puzzleList.length - 1; i >= 0; i--) {
+      if (puzzleList[i].correct) s++
+      else break
+    }
+    return s
+  })()
+  const xp = puzzleList.filter((p) => p.correct).reduce((sum, p) => sum + p.xp, 0)
+  const rank = attempted === 0 ? "-" : correct === attempted ? "S" : correct / attempted > 0.8 ? "A" : correct / attempted > 0.6 ? "B" : "C"
+
   const stats = [
-    { icon: Target, label: "Attempted", value: puzzlesStats.totalAttempted },
-    { icon: Check, label: "Correct", value: puzzlesStats.correct },
-    { icon: Flame, label: "Streak", value: puzzlesStats.streak },
-    { icon: Zap, label: "XP", value: puzzlesStats.xp.toLocaleString() },
-    { icon: Trophy, label: "Rank", value: puzzlesStats.rank },
+    { icon: Target, label: "Attempted", value: attempted },
+    { icon: Check, label: "Correct", value: correct },
+    { icon: Flame, label: "Streak", value: streak },
+    { icon: Zap, label: "XP", value: xp.toLocaleString() },
+    { icon: Trophy, label: "Rank", value: rank },
   ]
 
   const filters = [
     { label: "Difficulty", value: difficultyFilter, onChange: setDifficultyFilter, options: ["All", "Easy", "Medium", "Hard"] },
     { label: "Language", value: languageFilter, onChange: setLanguageFilter, options: ["All", "JavaScript", "Python"] },
   ]
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-void text-text-secondary antialiased">
+        <div className="mx-auto max-w-[1120px] px-8 py-6 flex items-center justify-center">
+          <div className="text-sm font-medium text-text-tertiary">Loading puzzles...</div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-void text-text-secondary antialiased">
@@ -51,6 +144,35 @@ const PuzzlesPage = ({ _onNavigate }) => {
             <p className="text-sm font-medium text-text-tertiary mt-1">Test your code knowledge</p>
           </div>
         </header>
+
+        {daily && (
+          <section className="rounded-xl border border-warning/25 bg-warning/5 p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-warning/12">
+              <Flame size={18} className="text-warning" strokeWidth={2.2} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-[10px] font-bold text-warning uppercase tracking-wider">Daily Puzzle</p>
+              <p className="text-sm font-bold text-text-primary truncate">{daily.title}</p>
+              <p className="text-[11px] text-text-tertiary">
+                {daily.difficulty} · {daily.xp} XP
+                {daily.attempted && (
+                  <span className={`ml-2 font-bold ${daily.correct ? "text-success" : "text-danger"}`}>
+                    {daily.correct ? "Completed" : "Attempted"}
+                  </span>
+                )}
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                setSelectedPuzzle(daily.id)
+                document.getElementById(`puzzle-${daily.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" })
+              }}
+              className="px-4 py-2 rounded-lg bg-warning/12 text-warning text-xs font-bold border border-warning/25 hover:bg-warning/20 transition-colors shrink-0"
+            >
+              {daily.attempted ? "Review" : "Solve Now"}
+            </button>
+          </section>
+        )}
 
         <section className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3.5">
           {stats.map((s) => {
@@ -90,12 +212,13 @@ const PuzzlesPage = ({ _onNavigate }) => {
         <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredPuzzles.map((puzzle) => {
             const isSelected = selectedPuzzle === puzzle.id
-            const hasAnswered = answers[puzzle.id] !== undefined
-            const wasCorrect = hasAnswered && isCorrect(puzzle.id, puzzle.correctIndex)
+            const hasAnswered = answers[puzzle.id] !== undefined || puzzle.attempted
+            const wasCorrect = puzzle.correct === true || (hasAnswered && isCorrect(puzzle.id, puzzle.correctIndex))
 
             return (
               <div
                 key={puzzle.id}
+                id={`puzzle-${puzzle.id}`}
                 onClick={() => setSelectedPuzzle(isSelected ? null : puzzle.id)}
                 className={`rounded-xl border transition-all cursor-pointer ${
                   isSelected
@@ -143,7 +266,7 @@ const PuzzlesPage = ({ _onNavigate }) => {
                     <p className="text-sm font-semibold text-text-primary">{puzzle.question}</p>
 
                     <div className="grid grid-cols-2 gap-2">
-                      {puzzle.options.map((option, idx) => {
+                      {(puzzle.options || []).map((option, idx) => {
                         const letter = String.fromCharCode(65 + idx)
                         const isSelectedOption = answers[puzzle.id] === idx
                         const isCorrectOption = idx === puzzle.correctIndex
@@ -190,6 +313,14 @@ const PuzzlesPage = ({ _onNavigate }) => {
             )
           })}
         </section>
+
+        {filteredPuzzles.length === 0 && (
+          <section className="rounded-xl border border-border bg-surface p-12 text-center">
+            <p className="text-sm font-bold text-text-tertiary">
+              {puzzleList.length === 0 ? "No puzzles available right now" : "No puzzles match these filters"}
+            </p>
+          </section>
+        )}
       </div>
     </div>
   )
