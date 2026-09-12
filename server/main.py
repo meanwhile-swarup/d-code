@@ -1,10 +1,14 @@
+import os
 import json
 import asyncio
 from datetime import datetime, timezone
 from typing import Dict, Set
 
+from dotenv import load_dotenv
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+
+load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
@@ -27,9 +31,11 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 app = FastAPI(title="D:CODE API")
 
+CORS_ORIGIN = os.environ.get("CORS_ORIGIN", "http://localhost:5173")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=[CORS_ORIGIN],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -1089,16 +1095,6 @@ class DuelRoom:
 
 
 class DuelManager:
-    def __init__(self):
-        self.rooms: Dict[str, DuelRoom] = {}
-        self.match_queue: Dict[str, str] = {}
-        self.user_rooms: Dict[str, str] = {}
-        self.user_sockets: Dict[str, WebSocket] = {}
-
-    def _is_ws_open(self, ws):
-        return ws is not None and hasattr(ws, 'client_state') and ws.client_state.name == 'CONNECTED'
-
-class DuelManager:
     # Seconds a disconnected player has to reconnect before the match
     # is awarded to the remaining opponent.
     GRACE_SECONDS = 30
@@ -1109,6 +1105,9 @@ class DuelManager:
         self.user_rooms: Dict[str, str] = {}
         self.user_sockets: Dict[str, WebSocket] = {}
         self.pending_disconnects: Dict[str, asyncio.Task] = {}
+
+    def _is_ws_open(self, ws):
+        return ws is not None and hasattr(ws, 'client_state') and ws.client_state.name == 'CONNECTED'
 
     def register(self, user_id, ws):
         self.user_sockets[user_id] = ws
@@ -1169,7 +1168,7 @@ class DuelManager:
         else:
             asyncio.create_task(self._notify_disconnect(room, user_id))
 
-async def _grace_timeout(self, room_id, user_id):
+    async def _grace_timeout(self, room_id, user_id):
         try:
             await asyncio.sleep(self.GRACE_SECONDS)
         except asyncio.CancelledError:

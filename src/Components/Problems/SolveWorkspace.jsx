@@ -201,7 +201,7 @@ const SolveWorkspace = ({ problem, onBack }) => {
           setFullProblem(data)
           setCode(data.starterCode || "")
         })
-        .catch(console.error)
+        .catch(() => {})
         .finally(() => setLoading(false))
     }
   }, [problem.id])

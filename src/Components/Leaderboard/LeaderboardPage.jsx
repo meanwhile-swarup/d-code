@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from "react"
+import React, { useState, useMemo, useCallback, useEffect } from "react"
 import {
   Trophy,
   Medal,
@@ -9,9 +9,11 @@ import {
   Crown,
   Flame,
   ChevronDown,
+  Loader2,
 } from "lucide-react"
 
-import { currentUser, players } from "../../data/leaderboardData"
+import { leaderboard } from "../../api/client"
+import { useAuth } from "../../contexts/AuthContext"
 import { difficultyBadge } from "../../utils/badges"
 
 const TIER_COLORS = {
@@ -33,7 +35,6 @@ const TABS = [
 const SORT_OPTIONS = [
   { key: "rating", label: "Rating" },
   { key: "wins", label: "Wins" },
-  { key: "streak", label: "Streak" },
 ]
 
 const TierBadge = ({ tier }) => {
@@ -68,11 +69,43 @@ const RankBadge = ({ rank }) => {
 }
 
 const LeaderboardPage = ({ onNavigate: _onNavigate }) => {
+  const { user } = useAuth()
+  const [players, setPlayers] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
   const [search, setSearch] = useState("")
   const [activeTab, setActiveTab] = useState("global")
   const [sortKey, setSortKey] = useState("rating")
   const [sortDir, setSortDir] = useState("desc")
   const [showSort, setShowSort] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    async function fetchPlayers() {
+      setLoading(true)
+      setError(null)
+      try {
+        let data
+        if (activeTab === "friends") {
+          data = await leaderboard.friends()
+        } else if (activeTab === "weekly") {
+          data = await leaderboard.weekly()
+        } else {
+          data = await leaderboard.global()
+        }
+        if (!cancelled) {
+          const list = Array.isArray(data) ? data : data.players || data.data || []
+          setPlayers(list)
+        }
+      } catch (err) {
+        if (!cancelled) setError(err.message || "Failed to load leaderboard")
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+    fetchPlayers()
+    return () => { cancelled = true }
+  }, [activeTab])
 
   const handleSort = useCallback((key) => {
     setSortKey((prev) => {
@@ -88,10 +121,6 @@ const LeaderboardPage = ({ onNavigate: _onNavigate }) => {
   const filtered = useMemo(() => {
     let list = [...players]
 
-    if (activeTab === "friends") {
-      list = list.filter((p) => p.isCurrentUser || p.rating > 1800)
-    }
-
     if (search.trim()) {
       const q = search.toLowerCase().trim()
       list = list.filter((p) => p.username.toLowerCase().includes(q))
@@ -101,12 +130,16 @@ const LeaderboardPage = ({ onNavigate: _onNavigate }) => {
       let cmp = 0
       if (sortKey === "rating") cmp = a.rating - b.rating
       else if (sortKey === "wins") cmp = a.wins - b.wins
-      else if (sortKey === "streak") cmp = a.streak - b.streak
       return sortDir === "asc" ? cmp : -cmp
     })
 
     return list
-  }, [activeTab, search, sortKey, sortDir])
+  }, [players, search, sortKey, sortDir])
+
+  const currentUserRank = useMemo(() => {
+    if (!user) return null
+    return players.findIndex((p) => p.id === user.id || p.username === user.username) + 1
+  }, [players, user])
 
   return (
     <div className="min-h-screen bg-void font-sans text-text-secondary antialiased">
@@ -122,21 +155,19 @@ const LeaderboardPage = ({ onNavigate: _onNavigate }) => {
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-3 text-xs bg-surface border border-border px-3.5 py-2 rounded-lg">
-              <span className="flex items-center gap-1.5 font-semibold text-text-secondary">
-                <Trophy size={13} className="text-warning" />
-                <strong className="text-warning font-mono">#{currentUser.rankChange > 0 ? `↑${currentUser.rankChange}` : currentUser.rankChange < 0 ? `↓${Math.abs(currentUser.rankChange)}` : "—"}</strong>
-                <span className="text-text-tertiary">this week</span>
-              </span>
-              <span className="text-border">|</span>
-              <span className="flex items-center gap-1.5 font-semibold text-text-secondary">
-                <Flame size={13} className="text-danger" />
-                <span className="text-text-tertiary">Streak</span>
-                <strong className="text-warning font-mono">{currentUser.streak}d</strong>
-              </span>
+          {user && (
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 text-xs bg-surface border border-border px-3.5 py-2 rounded-lg">
+                <span className="flex items-center gap-1.5 font-semibold text-text-secondary">
+                  <Trophy size={13} className="text-warning" />
+                  <strong className="text-warning font-mono">
+                    #{currentUserRank || "—"}
+                  </strong>
+                  <span className="text-text-tertiary">this week</span>
+                </span>
+              </div>
             </div>
-          </div>
+          )}
         </header>
 
         <div className="flex items-center gap-3">
@@ -207,104 +238,108 @@ const LeaderboardPage = ({ onNavigate: _onNavigate }) => {
           ))}
         </div>
 
-        <div className="rounded-xl border border-border bg-surface overflow-hidden">
-          <div className="grid grid-cols-[60px_1fr_120px_100px_100px_120px_80px] gap-4 px-5 py-2.5 border-b border-border text-[10px] font-bold uppercase tracking-wider text-text-tertiary select-none">
-            <span>Rank</span>
-            <span>Player</span>
-            <button onClick={() => handleSort("rating")} className="flex items-center gap-1 hover:text-text-primary transition-colors text-left">
-              Rating {sortKey === "rating" && (sortDir === "asc" ? <ArrowUp size={12} className="text-text-secondary" /> : <ArrowDown size={12} className="text-text-secondary" />)}
-            </button>
-            <span>W / L</span>
-            <button onClick={() => handleSort("streak")} className="flex items-center gap-1 hover:text-text-primary transition-colors text-left">
-              Streak {sortKey === "streak" && (sortDir === "asc" ? <ArrowUp size={12} className="text-text-secondary" /> : <ArrowDown size={12} className="text-text-secondary" />)}
-            </button>
-            <span>Tier</span>
-            <span className="text-right">Change</span>
+        {loading ? (
+          <div className="rounded-xl border border-border bg-surface px-5 py-24 text-center">
+            <Loader2 size={28} className="animate-spin mx-auto text-accent mb-3" />
+            <p className="text-sm font-bold text-text-tertiary">Loading leaderboard...</p>
           </div>
-
-          {filtered.length === 0 ? (
-            <div className="px-5 py-16 text-center">
-              <div className="flex justify-center mb-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-elevated border border-border">
-                  <Search size={20} className="text-text-tertiary" />
-                </div>
+        ) : error ? (
+          <div className="rounded-xl border border-border bg-surface px-5 py-24 text-center">
+            <p className="text-sm font-bold text-danger mb-1">Error loading leaderboard</p>
+            <p className="text-xs text-text-tertiary">{error}</p>
+          </div>
+        ) : (
+          <>
+            <div className="rounded-xl border border-border bg-surface overflow-hidden">
+              <div className="grid grid-cols-[60px_1fr_120px_100px_120px_80px] gap-4 px-5 py-2.5 border-b border-border text-[10px] font-bold uppercase tracking-wider text-text-tertiary select-none">
+                <span>Rank</span>
+                <span>Player</span>
+                <button onClick={() => handleSort("rating")} className="flex items-center gap-1 hover:text-text-primary transition-colors text-left">
+                  Rating {sortKey === "rating" && (sortDir === "asc" ? <ArrowUp size={12} className="text-text-secondary" /> : <ArrowDown size={12} className="text-text-secondary" />)}
+                </button>
+                <span>W / L</span>
+                <span>Tier</span>
+                <span className="text-right">Change</span>
               </div>
-              <p className="text-sm font-bold text-text-tertiary">No players found</p>
-              <p className="text-xs text-text-tertiary mt-1">Try adjusting your search</p>
-            </div>
-          ) : (
-            <div className="divide-y divide-border-subtle">
-              {filtered.map((player, index) => (
-                <div
-                  key={player.id}
-                  className={`grid grid-cols-[60px_1fr_120px_100px_100px_120px_80px] gap-4 px-5 py-3 items-center transition-colors ${
-                    player.isCurrentUser
-                      ? "bg-elevated"
-                      : "hover:bg-elevated/50"
-                  }`}
-                >
-                  <div className="flex items-center justify-center">
-                    <RankBadge rank={index + 1} />
+
+              {filtered.length === 0 ? (
+                <div className="px-5 py-16 text-center">
+                  <div className="flex justify-center mb-3">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-elevated border border-border">
+                      <Search size={20} className="text-text-tertiary" />
+                    </div>
                   </div>
-
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <img
-                      src={player.avatar}
-                      alt={player.username}
-                      className="w-7 h-7 rounded-full bg-elevated border border-border shrink-0"
-                    />
-                    <span className={`text-sm font-semibold truncate ${
-                      player.isCurrentUser ? "text-text-primary" : "text-text-secondary"
-                    }`}>
-                      {player.username}
-                    </span>
-                    {player.isCurrentUser && (
-                      <span className="text-[9px] font-bold uppercase tracking-wider text-accent bg-accent/10 border border-accent/20 px-1.5 py-0.5 rounded shrink-0">
-                        You
-                      </span>
-                    )}
-                  </div>
-
-                  <span className="text-sm font-mono font-bold text-text-primary">{player.rating.toLocaleString()}</span>
-
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xs font-mono font-semibold text-success">{player.wins}</span>
-                    <span className="text-text-tertiary">/</span>
-                    <span className="text-xs font-mono font-semibold text-danger">{player.losses}</span>
-                  </div>
-
-                  <div className="flex items-center gap-1.5">
-                    <Flame size={13} className={player.streak > 0 ? "text-warning" : "text-text-tertiary"} />
-                    <span className={`text-xs font-mono font-semibold ${
-                      player.streak > 0 ? "text-warning" : "text-text-tertiary"
-                    }`}>
-                      {player.streak}d
-                    </span>
-                  </div>
-
-                  <TierBadge tier={player.tier} />
-
-                  <div className="flex items-center justify-end gap-1">
-                    <RankChange change={player.rankChange} />
-                    <span className="text-[10px] font-mono text-text-tertiary">
-                      {player.rankChange > 0 ? `+${player.rankChange}` : player.rankChange}
-                    </span>
-                  </div>
+                  <p className="text-sm font-bold text-text-tertiary">No players found</p>
+                  <p className="text-xs text-text-tertiary mt-1">Try adjusting your search</p>
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
+              ) : (
+                <div className="divide-y divide-border-subtle">
+                  {filtered.map((player, index) => (
+                    <div
+                      key={player.id}
+                      className={`grid grid-cols-[60px_1fr_120px_100px_120px_80px] gap-4 px-5 py-3 items-center transition-colors ${
+                        (user && (player.id === user.id || player.username === user.username))
+                          ? "bg-elevated"
+                          : "hover:bg-elevated/50"
+                      }`}
+                    >
+                      <div className="flex items-center justify-center">
+                        <RankBadge rank={player.rank || index + 1} />
+                      </div>
 
-        <div className="flex items-center justify-between text-xs text-text-tertiary font-medium px-1">
-          <span>Showing <strong className="text-text-secondary font-mono">{filtered.length}</strong> of {players.length} players</span>
-          <span className="flex items-center gap-1.5">
-            <Trophy size={12} className="text-warning" />
-            <span className="text-text-tertiary">
-              Your rank: <strong className="text-text-primary font-mono">#{players.findIndex((p) => p.isCurrentUser) + 1}</strong>
-            </span>
-          </span>
-        </div>
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <img
+                          src={player.avatar}
+                          alt={player.username}
+                          className="w-7 h-7 rounded-full bg-elevated border border-border shrink-0"
+                        />
+                        <span className={`text-sm font-semibold truncate ${
+                          (user && (player.id === user.id || player.username === user.username)) ? "text-text-primary" : "text-text-secondary"
+                        }`}>
+                          {player.username}
+                        </span>
+                        {(user && (player.id === user.id || player.username === user.username)) && (
+                          <span className="text-[9px] font-bold uppercase tracking-wider text-accent bg-accent/10 border border-accent/20 px-1.5 py-0.5 rounded shrink-0">
+                            You
+                          </span>
+                        )}
+                      </div>
+
+                      <span className="text-sm font-mono font-bold text-text-primary">{player.rating?.toLocaleString()}</span>
+
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-mono font-semibold text-success">{player.wins}</span>
+                        <span className="text-text-tertiary">/</span>
+                        <span className="text-xs font-mono font-semibold text-danger">{player.losses}</span>
+                      </div>
+
+                      <TierBadge tier={player.tier} />
+
+                      <div className="flex items-center justify-end gap-1">
+                        <RankChange change={player.rankChange} />
+                        <span className="text-[10px] font-mono text-text-tertiary">
+                          {player.rankChange > 0 ? `+${player.rankChange}` : player.rankChange}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between text-xs text-text-tertiary font-medium px-1">
+              <span>Showing <strong className="text-text-secondary font-mono">{filtered.length}</strong> of {players.length} players</span>
+              {user && (
+                <span className="flex items-center gap-1.5">
+                  <Trophy size={12} className="text-warning" />
+                  <span className="text-text-tertiary">
+                    Your rank: <strong className="text-text-primary font-mono">#{currentUserRank || "—"}</strong>
+                  </span>
+                </span>
+              )}
+            </div>
+          </>
+        )}
       </div>
     </div>
   )

@@ -43,3 +43,49 @@
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.12);
 }
+
+/* Icon enhancements — make lucide icons feel bolder and more substantial */
+.lucide {
+  --lucide-stroke-width: 1.8;
+}
+
+.lucide-sm {
+  --lucide-stroke-width: 2;
+}
+
+/* Filled variants for key thematic icons via CSS */
+.icon-filled {
+  fill: currentColor !important;
+  stroke: none !important;
+}
+
+.icon-heavy {
+  --lucide-stroke-width: 2.2;
+}
+
+/* Glow effect for accent icons on dark backgrounds */
+.icon-glow {
+  filter: drop-shadow(0 0 6px rgba(139, 92, 246, 0.3));
+}
+
+.icon-glow-success {
+  filter: drop-shadow(0 0 6px rgba(34, 197, 94, 0.3));
+}
+
+.icon-glow-warning {
+  filter: drop-shadow(0 0 6px rgba(245, 158, 11, 0.3));
+}
+
+.icon-glow-danger {
+  filter: drop-shadow(0 0 6px rgba(239, 68, 68, 0.3));
+}
+
+@keyframes scorePopupIn {
+  0% { opacity: 0; transform: scale(0.7) translateY(10px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes scorePopupOut {
+  0% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(0.9) translateY(-10px); }
+}

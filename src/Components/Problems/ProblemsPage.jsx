@@ -17,6 +17,7 @@ import {
 } from "lucide-react"
 
 import { problems as problemsApi } from "../../api/client"
+import { useAuth } from "../../contexts/AuthContext"
 
 const difficultyBadge = (d) => {
   if (d === "Easy") return "text-success bg-success/12 border-success/25"
@@ -47,6 +48,7 @@ const SortIcon = ({ col, sortKey, sortDir }) => {
 }
 
 const ProblemsPage = ({ onNavigateToProblem }) => {
+  const { user } = useAuth()
   const [allProblems, setAllProblems] = useState([])
   const [allTopics, setAllTopics] = useState([])
   const [search, setSearch] = useState("")
@@ -63,7 +65,7 @@ const ProblemsPage = ({ onNavigateToProblem }) => {
         setAllProblems(res.problems)
         setAllTopics(res.allTopics)
       })
-      .catch(console.error)
+      .catch(() => {})
   }, [])
 
   const handleSort = useCallback((key) => {
@@ -141,7 +143,7 @@ const ProblemsPage = ({ onNavigateToProblem }) => {
               <span className="flex items-center gap-1.5 font-semibold text-text-secondary">
                 <Flame size={13} className="text-danger" />
                 <span className="text-text-tertiary">Streak</span>
-                <strong className="text-warning font-mono">5d</strong>
+                <strong className="text-warning font-mono">{user?.streak || 0}d</strong>
               </span>
             </div>
           </div>

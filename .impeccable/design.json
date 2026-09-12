@@ -1,0 +1,249 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-28T00:00:00Z",
+  "title": "Design System: D:CODE",
+  "extensions": {
+    "colorMeta": {
+      "neutral-void": {
+        "role": "neutral",
+        "displayName": "Void",
+        "canonical": "#09090b",
+        "tonalRamp": ["#09090b", "#0c0c0e", "#111113", "#18181b", "#1e1e22", "#27272a", "#3f3f46", "#52525b"]
+      },
+      "neutral-base": {
+        "role": "neutral",
+        "displayName": "Base",
+        "canonical": "#0c0c0e",
+        "tonalRamp": ["#0c0c0e", "#111113", "#18181b", "#1e1e22", "#27272a", "#3f3f46", "#52525b", "#71717a"]
+      },
+      "neutral-surface": {
+        "role": "neutral",
+        "displayName": "Surface",
+        "canonical": "#111113",
+        "tonalRamp": ["#111113", "#18181b", "#1e1e22", "#27272a", "#3f3f46", "#52525b", "#71717a", "#a1a1aa"]
+      },
+      "neutral-elevated": {
+        "role": "neutral",
+        "displayName": "Elevated",
+        "canonical": "#18181b",
+        "tonalRamp": ["#18181b", "#1e1e22", "#27272a", "#3f3f46", "#52525b", "#71717a", "#a1a1aa", "#d4d4d8"]
+      },
+      "accent-violet": {
+        "role": "primary",
+        "displayName": "Arena Violet",
+        "canonical": "#8b5cf6",
+        "tonalRamp": ["#4c1d95", "#5b21b6", "#6d28d9", "#7c3aed", "#8b5cf6", "#a78bfa", "#c4b5fd", "#ddd6fe"]
+      },
+      "status-success": {
+        "role": "success",
+        "displayName": "Success Green",
+        "canonical": "#22c55e",
+        "tonalRamp": ["#14532d", "#166534", "#15803d", "#16a34a", "#22c55e", "#4ade80", "#86efac", "#bbf7d0"]
+      },
+      "status-warning": {
+        "role": "warning",
+        "displayName": "Warning Amber",
+        "canonical": "#f59e0b",
+        "tonalRamp": ["#78350f", "#92400e", "#b45309", "#d97706", "#f59e0b", "#fbbf24", "#fcd34d", "#fde68a"]
+      },
+      "status-danger": {
+        "role": "danger",
+        "displayName": "Danger Red",
+        "canonical": "#ef4444",
+        "tonalRamp": ["#7f1d1d", "#991b1b", "#b91c1c", "#dc2626", "#ef4444", "#f87171", "#fca5a5", "#fecaca"]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Page titles and hero headings — maximum once per view."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Section headings and card titles."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Paragraphs, descriptions, and primary content."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Buttons, badges, navigation, and metadata."
+      },
+      "mono": {
+        "displayName": "Mono",
+        "purpose": "Code blocks, numerical data, and timestamps."
+      }
+    },
+    "shadows": [
+      {
+        "name": "surface",
+        "value": "0 1px 2px rgba(0,0,0,0.3)",
+        "purpose": "Default ambient shadow for resting cards and surfaces."
+      },
+      {
+        "name": "elevated",
+        "value": "0 4px 12px rgba(0,0,0,0.4), 0 1px 3px rgba(0,0,0,0.3)",
+        "purpose": "Hover states, dropdowns, and floating elements."
+      },
+      {
+        "name": "modal",
+        "value": "0 16px 48px rgba(0,0,0,0.5), 0 4px 12px rgba(0,0,0,0.3)",
+        "purpose": "Modals, dialogs, and full-screen overlays."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-standard",
+        "value": "cubic-bezier(0.4, 0, 0.2, 1)",
+        "purpose": "Default easing for state transitions (hover, focus, active)."
+      },
+      {
+        "name": "ease-out",
+        "value": "cubic-bezier(0, 0, 0.2, 1)",
+        "purpose": "Entrance animations and expanding elements."
+      },
+      {
+        "name": "duration-fast",
+        "value": "150ms",
+        "purpose": "Button hover, input focus, small state changes."
+      },
+      {
+        "name": "duration-normal",
+        "value": "200ms",
+        "purpose": "Card hover, navigation transitions, panel slides."
+      }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" },
+      { "name": "xl", "value": "1440px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Primary call-to-action. Violet background, white text.",
+      "html": "<button class=\"ds-btn-primary\">SUBMIT</button>",
+      "css": ".ds-btn-primary { background: #8b5cf6; color: #ffffff; padding: 10px 20px; border-radius: 6px; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; font-size: 0.8125rem; font-weight: 600; letter-spacing: 0.01em; border: none; cursor: pointer; transition: background 150ms cubic-bezier(0.4, 0, 0.2, 1); } .ds-btn-primary:hover { background: #7c3aed; } .ds-btn-primary:focus-visible { outline: 2px solid #8b5cf6; outline-offset: 2px; } .ds-btn-primary:active { transform: scale(0.98); }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Secondary actions. Elevated background, subtle border shift on hover.",
+      "html": "<button class=\"ds-btn-secondary\">CANCEL</button>",
+      "css": ".ds-btn-secondary { background: #18181b; color: #fafafa; padding: 10px 20px; border-radius: 6px; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; font-size: 0.8125rem; font-weight: 600; border: 1px solid #27272a; cursor: pointer; transition: border-color 150ms cubic-bezier(0.4, 0, 0.2, 1), background 150ms cubic-bezier(0.4, 0, 0.2, 1); } .ds-btn-secondary:hover { border-color: #3f3f46; background: #1e1e22; } .ds-btn-secondary:focus-visible { outline: 2px solid #8b5cf6; outline-offset: 2px; }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Tertiary actions. Transparent, shows elevated background on hover.",
+      "html": "<button class=\"ds-btn-ghost\">LEARN MORE</button>",
+      "css": ".ds-btn-ghost { background: transparent; color: #a1a1aa; padding: 10px 20px; border-radius: 6px; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; font-size: 0.8125rem; font-weight: 600; border: none; cursor: pointer; transition: color 150ms cubic-bezier(0.4, 0, 0.2, 1), background 150ms cubic-bezier(0.4, 0, 0.2, 1); } .ds-btn-ghost:hover { color: #fafafa; background: #18181b; } .ds-btn-ghost:focus-visible { outline: 2px solid #8b5cf6; outline-offset: 2px; }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Standard text input. Dark background, subtle border, violet focus ring.",
+      "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"Search...\" />",
+      "css": ".ds-input { background: #0c0c0e; color: #fafafa; padding: 10px 14px; border-radius: 8px; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; font-size: 0.875rem; border: 1px solid #27272a; outline: none; transition: border-color 150ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 150ms cubic-bezier(0.4, 0, 0.2, 1); } .ds-input::placeholder { color: #71717a; } .ds-input:focus { border-color: #8b5cf6; box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.12); } .ds-input:disabled { opacity: 0.5; cursor: not-allowed; }"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Standard content container. Surface background, subtle border, 12px radius.",
+      "html": "<div class=\"ds-card\"><h3 class=\"ds-card-title\">Rating</h3><p class=\"ds-card-value\">1,247</p></div>",
+      "css": ".ds-card { background: #111113; color: #fafafa; padding: 20px; border-radius: 12px; border: 1px solid #27272a; box-shadow: 0 1px 2px rgba(0,0,0,0.3); transition: border-color 200ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 200ms cubic-bezier(0.4, 0, 0.2, 1); } .ds-card:hover { border-color: #3f3f46; box-shadow: 0 4px 12px rgba(0,0,0,0.4), 0 1px 3px rgba(0,0,0,0.3); } .ds-card-title { font-size: 0.75rem; font-weight: 600; color: #a1a1aa; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; } .ds-card-value { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.025em; }"
+    },
+    {
+      "name": "Sidebar Nav Item",
+      "kind": "nav",
+      "refersTo": "navigation",
+      "description": "Sidebar navigation item. Tertiary text default, elevated hover, violet active.",
+      "html": "<a class=\"ds-nav-item\" href=\"#\"><span class=\"ds-nav-icon\">📊</span><span class=\"ds-nav-label\">Dashboard</span></a>",
+      "css": ".ds-nav-item { display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-radius: 8px; font-size: 0.875rem; font-weight: 600; color: #71717a; text-decoration: none; transition: color 150ms cubic-bezier(0.4, 0, 0.2, 1), background 150ms cubic-bezier(0.4, 0, 0.2, 1); } .ds-nav-item:hover { color: #a1a1aa; background: #18181b; } .ds-nav-item.active { color: #fafafa; background: #18181b; border-left: 2px solid #8b5cf6; } .ds-nav-icon { width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; }"
+    },
+    {
+      "name": "Difficulty Badge",
+      "kind": "chip",
+      "refersTo": "badge",
+      "description": "Difficulty indicator. Emerald for Easy, Amber for Medium, Rose for Hard.",
+      "html": "<span class=\"ds-badge-easy\">Easy</span>",
+      "css": ".ds-badge-easy { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 6px; font-size: 0.6875rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #22c55e; background: rgba(34, 197, 94, 0.12); border: 1px solid rgba(34, 197, 94, 0.25); } .ds-badge-medium { color: #f59e0b; background: rgba(245, 158, 11, 0.12); border-color: rgba(245, 158, 11, 0.25); } .ds-badge-hard { color: #ef4444; background: rgba(239, 68, 68, 0.12); border-color: rgba(239, 68, 68, 0.25); }"
+    },
+    {
+      "name": "Tab Bar",
+      "kind": "nav",
+      "refersTo": "tabs",
+      "description": "Horizontal tab navigation. Bottom border indicator, violet for active.",
+      "html": "<nav class=\"ds-tabs\"><a class=\"ds-tab active\" href=\"#\">Global</a><a class=\"ds-tab\" href=\"#\">Friends</a><a class=\"ds-tab\" href=\"#\">Weekly</a></nav>",
+      "css": ".ds-tabs { display: flex; gap: 0; border-bottom: 1px solid #27272a; } .ds-tab { padding: 10px 16px; font-size: 0.8125rem; font-weight: 600; color: #71717a; text-decoration: none; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color 150ms cubic-bezier(0.4, 0, 0.2, 1), border-color 150ms cubic-bezier(0.4, 0, 0.2, 1); } .ds-tab:hover { color: #a1a1aa; } .ds-tab.active { color: #fafafa; border-bottom-color: #8b5cf6; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Arena",
+    "overview": "D:CODE's design language is a competitive arena built for developers — dark, precise, and unapologetically functional. Every element earns its place through utility, not decoration. The system draws from the discipline of Linear's precision and GitHub's restraint, establishing a world where the interface disappears and the code, the competition, and the community take center stage. The palette is intentionally muted: deep neutral backgrounds with a single, controlled violet accent that signals action and status without ever shouting. Typography is clear and hierarchical. Shadows are structural, not decorative. Borders define surfaces, not ornament them.",
+    "keyCharacteristics": [
+      "Deep, near-black neutral backgrounds with minimal tonal variation",
+      "Single accent (muted violet) used sparingly — rarity creates signal",
+      "Structural elevation through subtle borders and offset shadows",
+      "Typography-first hierarchy: weight and size do the work, not color",
+      "Every interactive element has clear, restrained hover and focus states"
+    ],
+    "rules": [
+      {
+        "name": "The Rarity Rule",
+        "body": "Arena Violet appears on ≤15% of any given screen. Its scarcity creates signal; when everything is violet, nothing is.",
+        "section": "colors"
+      },
+      {
+        "name": "The Neutral-Dominant Rule",
+        "body": "At least 70% of any visible surface is neutral (Void through Elevated). Color exists to inform, not to decorate.",
+        "section": "colors"
+      },
+      {
+        "name": "The Weight-Does-Work Rule",
+        "body": "Hierarchy is established through font-weight contrast, not color or size alone. A 700-weight heading on a neutral background needs no accent color to read as important.",
+        "section": "typography"
+      },
+      {
+        "name": "The Mono-For-Data Rule",
+        "body": "Monospace font is reserved for code, numerical data, and timestamps. Never use it for UI labels, headings, or prose — that's costume, not craft.",
+        "section": "typography"
+      },
+      {
+        "name": "The Flat-By-Default Rule",
+        "body": "Surfaces are flat at rest. Shadows appear only as a response to state (hover, active, focus) or elevation (modal, dropdown). A resting card never casts a visible shadow.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Border-First Rule",
+        "body": "Surfaces are defined by borders first, shadows second. A 1px border on #27272a does more structural work than any shadow.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do use borders as the primary structural element — they define surfaces more reliably than shadows",
+      "Do keep violet under 15% of screen real estate — its rarity creates signal",
+      "Do use font-weight contrast (600 vs 400) to establish hierarchy, not color",
+      "Do keep code and data in JetBrains Mono — it's functional, not decorative",
+      "Do ensure all text meets 4.5:1 contrast ratio against its background",
+      "Do use consistent 8px spacing grid for all layout decisions"
+    ],
+    "donts": [
+      "Don't use gradient text — emphasis comes from weight or size, not color shifts",
+      "Don't apply glass/blur as decoration — reserve backdrop-filter for specific overlay effects only",
+      "Don't use hard offset shadows (4px 4px 0) — they belong to neobrutalist worlds, not this one",
+      "Don't use monospace font for UI labels, headings, or prose — it's for code and data only",
+      "Don't add decorative borders (colored left/right borders on cards) — borders are structural",
+      "Don't use violet for large backgrounds — it's an accent, not a surface color"
+    ]
+  }
+}

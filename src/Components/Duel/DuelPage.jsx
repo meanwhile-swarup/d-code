@@ -95,15 +95,15 @@ function useWebSocket() {
     if (wsRef.current?.readyState === WebSocket.OPEN) return
     if (wsRef.current?.readyState === WebSocket.CONNECTING) return
 
-    const ws = new WebSocket(`ws://localhost:8000/ws?token=${token}`)
+    const apiBase = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000"
+    const wsBase = apiBase.replace(/^http/, "ws")
+    const ws = new WebSocket(`${wsBase}/ws?token=${token}`)
     wsRef.current = ws
 
     ws.onopen = () => {
-      console.log("[WS] connected")
       setIsConnected(true)
     }
     ws.onclose = () => {
-      console.log("[WS] disconnected, reconnecting...")
       setIsConnected(false)
       reconnectRef.current = setTimeout(() => connect(), 3000)
     }
@@ -1247,9 +1247,7 @@ const DuelPage = ({ onBack }) => {
   }, [on, player, opponent, startTimer])
 
   const handleFindMatch = useCallback((formatId) => {
-    console.log("[DUEL] Find match requested, formatId:", formatId, "typeof:", typeof formatId)
     if (!formatId || !["sprint", "standard", "extended"].includes(formatId)) {
-      console.error("[DUEL] Invalid formatId:", formatId)
       return
     }
     setSearching(true)

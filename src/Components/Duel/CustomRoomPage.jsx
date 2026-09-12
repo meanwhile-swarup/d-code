@@ -44,7 +44,9 @@ function useWebSocket() {
     if (!token) return
     if (wsRef.current?.readyState === WebSocket.OPEN) return
     if (wsRef.current?.readyState === WebSocket.CONNECTING) return
-    const ws = new WebSocket(`ws://localhost:8000/ws?token=${token}`)
+    const apiBase = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000"
+    const wsBase = apiBase.replace(/^http/, "ws")
+    const ws = new WebSocket(`${wsBase}/ws?token=${token}`)
     wsRef.current = ws
     ws.onopen = () => {
       setIsConnected(true)

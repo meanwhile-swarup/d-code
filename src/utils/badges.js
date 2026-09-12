@@ -12,6 +12,8 @@ export const statusBadge = (status) => {
 
 export const resultBadge = (result) => {
   if (result === "W") return "text-success bg-success/12 border border-success/25"
+  if (result === "D") return "text-warning bg-warning/12 border border-warning/25"
+  if (result === "pending") return "text-text-tertiary bg-text-tertiary/12 border border-text-tertiary/25"
   return "text-danger bg-danger/12 border border-danger/25"
 }
 

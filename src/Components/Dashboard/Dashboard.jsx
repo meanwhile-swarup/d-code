@@ -1,19 +1,13 @@
-import React from "react"
+import React, { useState, useEffect } from "react"
 import {
-  Swords,
-  Trophy,
-  Target,
-  Flame,
-  Code2,
   ArrowRight,
   TrendingUp,
   TrendingDown,
-  Gamepad2,
-  Users,
-  Brain,
 } from "lucide-react"
+import { SwordsIcon, TrophyIcon, TargetIcon, FlameIcon, CodeIcon, GamepadIcon, UsersIcon, BrainIcon } from "../ui/Icons"
 import { useAuth } from "../../contexts/AuthContext"
 import { difficultyBadge } from "../../utils/badges"
+import { duels, submissions } from "../../api/client"
 
 const getGreeting = () => {
   const h = new Date().getHours()
@@ -22,20 +16,36 @@ const getGreeting = () => {
   return "Good evening"
 }
 
-const recentDuels = [
-  { opponent: "ByteKnight", result: "W", score: "2 - 1", problem: "Two Sum Variants", ratingChange: +24 },
-  { opponent: "codeNinja", result: "W", score: "1 - 0", problem: "String Compression", ratingChange: +18 },
-  { opponent: "MiraCode", result: "L", score: "0 - 1", problem: "Graph Paths", ratingChange: -12 },
-]
-
-const continueSolving = [
-  { name: "Two Sum", difficulty: "Easy", progress: 100 },
-  { name: "Valid Parentheses", difficulty: "Easy", progress: 60 },
-  { name: "Maximum Subarray", difficulty: "Medium", progress: 30 },
-]
-
 const Dashboard = ({ onNavigate }) => {
   const { user } = useAuth()
+  const [recentDuels, setRecentDuels] = useState([])
+  const [continueSolving, setContinueSolving] = useState([])
+
+  useEffect(() => {
+    duels.list()
+      .then((data) => {
+        const mapped = (Array.isArray(data) ? data : []).slice(0, 3).map((d) => ({
+          opponent: d.opponent?.username,
+          result: d.result,
+          score: "",
+          problem: "",
+          ratingChange: d.ratingChange || 0,
+        }))
+        setRecentDuels(mapped)
+      })
+      .catch(() => setRecentDuels([]))
+
+    submissions.solved()
+      .then((data) => {
+        const mapped = (Array.isArray(data) ? data : []).slice(0, 4).map((s) => ({
+          name: s.title,
+          difficulty: s.difficulty,
+          progress: 100,
+        }))
+        setContinueSolving(mapped)
+      })
+      .catch(() => setContinueSolving([]))
+  }, [])
 
   return (
     <div className="min-h-screen bg-void font-sans text-text-secondary antialiased">
@@ -60,7 +70,7 @@ const Dashboard = ({ onNavigate }) => {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-white/15 text-white">
-                    <Swords size={24} strokeWidth={2.2} />
+                    <SwordsIcon size={24} className="text-white" />
                   </div>
                   <div>
                     <h3 className="text-lg font-extrabold text-white leading-none">Ranked Duel</h3>
@@ -79,7 +89,7 @@ const Dashboard = ({ onNavigate }) => {
             >
               <div className="flex items-center gap-4">
                 <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-elevated text-text-secondary border border-border">
-                  <Gamepad2 size={24} strokeWidth={2} />
+                    <GamepadIcon size={24} className="text-text-secondary" />
                 </div>
                 <div>
                   <h3 className="text-lg font-extrabold text-text-primary group-hover:text-text-primary transition-colors leading-none">Casual Duel</h3>
@@ -94,7 +104,7 @@ const Dashboard = ({ onNavigate }) => {
             >
               <div className="flex items-center gap-4">
                 <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-elevated text-text-secondary border border-border">
-                  <Users size={24} strokeWidth={2} />
+                   <UsersIcon size={24} className="text-text-secondary" />
                 </div>
                 <div>
                   <h3 className="text-lg font-extrabold text-text-primary group-hover:text-text-primary transition-colors leading-none">Custom Room</h3>
@@ -107,16 +117,16 @@ const Dashboard = ({ onNavigate }) => {
 
         <section className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
           {[
-            { icon: Trophy, label: "Rating", value: user?.rating || 1000 },
-            { icon: Target, label: "W / L", value: `${user?.wins || 0}–${user?.losses || 0}` },
-            { icon: Flame, label: "Solved", value: user?.solved || 0 },
-            { icon: Code2, label: "Rank", value: `#${user?.rank || "---"}` },
+            { icon: TrophyIcon, label: "Rating", value: user?.rating || 1000 },
+            { icon: TargetIcon, label: "W / L", value: `${user?.wins || 0}–${user?.losses || 0}` },
+            { icon: FlameIcon, label: "Solved", value: user?.solved || 0 },
+            { icon: CodeIcon, label: "Rank", value: `#${user?.rank || "---"}` },
           ].map((s) => {
             const Icon = s.icon
             return (
               <div key={s.label} className="rounded-xl bg-surface border border-border p-4 flex items-center gap-3.5">
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-elevated">
-                  <Icon size={20} className="text-text-secondary" strokeWidth={2.2} />
+                  <Icon size={22} className="text-text-secondary" />
                 </div>
                 <div className="min-w-0">
                   <p className="text-lg font-extrabold font-mono text-text-primary leading-tight truncate">{s.value}</p>
@@ -187,7 +197,7 @@ const Dashboard = ({ onNavigate }) => {
                       </div>
                     </div>
                     <div className="p-2 rounded-lg bg-elevated text-text-tertiary group-hover:text-accent group-hover:bg-accent/12 transition-colors">
-                      <Code2 size={16} />
+                       <CodeIcon size={16} />
                     </div>
                   </div>
                 ))}
@@ -202,7 +212,7 @@ const Dashboard = ({ onNavigate }) => {
             >
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-elevated text-text-secondary border border-border">
-                  <Brain size={20} />
+                   <BrainIcon size={20} />
                 </div>
                 <div>
                   <h3 className="text-sm font-extrabold text-text-primary group-hover:text-text-primary transition-colors">Daily Puzzle</h3>
@@ -217,7 +227,7 @@ const Dashboard = ({ onNavigate }) => {
             >
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-elevated text-text-secondary border border-border">
-                  <Trophy size={20} />
+                   <TrophyIcon size={20} />
                 </div>
                 <div>
                   <h3 className="text-sm font-extrabold text-text-primary group-hover:text-text-primary transition-colors">Leaderboard</h3>
